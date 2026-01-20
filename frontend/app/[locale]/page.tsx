@@ -50,8 +50,20 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <ModeToggle />
             <AccountMenu />
-            <Button variant="ghost" size="icon" className="rounded-full" aria-label="GitHub">
-              <Github className="h-5 w-5" />
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              aria-label="GitHub"
+            >
+              <a
+                href="https://github.com/lmarch2/lingbao-market"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Github className="h-5 w-5" />
+              </a>
             </Button>
           </div>
         </div>
