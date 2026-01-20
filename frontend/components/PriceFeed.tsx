@@ -25,7 +25,8 @@ export default function PriceFeed() {
   const lastMaxPrice = useRef<number | null>(null);
   const reduceMotion = useReducedMotion();
   const { data: session } = useSession();
-  const token = (session as any)?.accessToken as string | undefined;
+  const token = (session as { accessToken?: string } | null)?.accessToken;
+  const isAdmin = Boolean((session as { user?: { isAdmin?: boolean } } | null)?.user?.isAdmin);
   
   const { data: prices, error, isLoading, mutate } = useSWR<PriceItem[]>(
     apiUrl(`/api/v1/feed?sort=${sortBy}`),
@@ -119,6 +120,7 @@ export default function PriceFeed() {
                         item={item} 
                         index={idx}
                         adminToken={token}
+                        canDelete={isAdmin}
                         onDeleted={() => mutate()}
                     />
                 ))}

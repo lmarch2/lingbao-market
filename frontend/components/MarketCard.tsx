@@ -21,10 +21,17 @@ interface MarketCardProps {
   item: PriceItem;
   index: number;
   adminToken?: string;
+  canDelete?: boolean;
   onDeleted?: () => void;
 }
 
-export default function MarketCard({ item, index, adminToken, onDeleted }: MarketCardProps) {
+export default function MarketCard({
+  item,
+  index,
+  adminToken,
+  canDelete = false,
+  onDeleted,
+}: MarketCardProps) {
   const t = useTranslations('Card');
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -114,7 +121,7 @@ export default function MarketCard({ item, index, adminToken, onDeleted }: Marke
             </div>
             
             <div className="flex items-center gap-2">
-              {adminToken && (
+              {canDelete && adminToken && (
                 <Button
                   onClick={handleDelete}
                   size="icon"

@@ -33,7 +33,7 @@
   },
   "Submit": {
     "title": "Submit Entry",
-    "description": "Share your Lingbao price with the community.",
+    "description": "Share your Lingbao price.",
     "signin_prompt": "Sign in to share your Lingbao price. You can still view the live market without an account.",
     "code_placeholder": "A123",
     "price_placeholder": "Price",
@@ -43,8 +43,8 @@
     "register_button": "Register"
   },
   "Feed": {
-    "title": "Market Stream",
-    "subtitle": "Live listings from the community",
+    "title": "Market",
+    "subtitle": "",
     "live_label": "Live Market",
     "new_high": "New High",
     "listings": "active listings",

@@ -70,11 +70,19 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-4 md:px-6 py-10 md:py-14 relative z-10">
-        <section id="submit" className="mt-6">
-          <div className="flex flex-col gap-2 mb-6">
-            <h2 className="text-2xl sm:text-3xl font-semibold font-display">{tSubmit('title')}</h2>
-            <p className="text-sm text-muted-foreground max-w-2xl">{tSubmit('description')}</p>
+        <section className="mb-10">
+          <div className="relative px-1 sm:px-2">
+            <p className="text-4xl sm:text-5xl lg:text-6xl font-semibold font-display text-balance leading-tight">
+              {tSubmit('description')}
+            </p>
+            <div className="mt-4 flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-muted-foreground">
+              <span className="h-[1px] w-8 bg-black/30 dark:bg-white/30" />
+              {tFeed('live_label')}
+            </div>
           </div>
+        </section>
+
+        <section id="submit" className="mt-6">
           <SubmitForm />
         </section>
 
@@ -82,7 +90,6 @@ export default function Home() {
           <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
             <div>
               <h2 className="text-2xl sm:text-3xl font-semibold font-display">{tFeed('title')}</h2>
-              <p className="text-sm text-muted-foreground mt-2">{tFeed('subtitle')}</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="h-2 w-2 rounded-full bg-black/40 dark:bg-white/40 animate-pulse" />
