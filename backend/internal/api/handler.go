@@ -35,6 +35,14 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 
 	// Protected
 	api.Post("/submit", h.authMiddleware, h.SubmitPrice)
+
+	// Admin
+	admin := api.Group("/admin", h.authMiddleware, h.adminMiddleware)
+	admin.Get("/users", h.ListUsers)
+	admin.Post("/users", h.CreateUser)
+	admin.Patch("/users/:username/ban", h.SetUserBan)
+	admin.Delete("/users/:username", h.DeleteUser)
+	admin.Delete("/prices/:code", h.DeletePriceByCode)
 }
 
 func (h *Handler) Register(c *fiber.Ctx) error {
@@ -135,6 +143,104 @@ func (h *Handler) SubmitPrice(c *fiber.Ctx) error {
 	return c.Status(201).JSON(fiber.Map{"status": "ok"})
 }
 
+func (h *Handler) ListUsers(c *fiber.Ctx) error {
+	users, err := h.authSvc.ListUsers(c.Context())
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list users"})
+	}
+
+	resp := make([]model.UserPublic, 0, len(users))
+	for _, user := range users {
+		resp = append(resp, model.UserPublic{
+			ID:       user.ID,
+			Username: user.Username,
+			IsAdmin:  user.IsAdmin,
+			Banned:   user.Banned,
+		})
+	}
+	return c.JSON(resp)
+}
+
+func (h *Handler) CreateUser(c *fiber.Ctx) error {
+	var payload struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		IsAdmin  bool   `json:"isAdmin"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid request"})
+	}
+	payload.Username = strings.TrimSpace(payload.Username)
+	if len(payload.Username) < 3 || len(payload.Password) < 6 {
+		return c.Status(400).JSON(fiber.Map{"error": "username min 3 chars, password min 6 chars"})
+	}
+
+	user, err := h.authSvc.CreateUser(c.Context(), payload.Username, payload.Password, payload.IsAdmin)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.Status(201).JSON(model.UserPublic{
+		ID:       user.ID,
+		Username: user.Username,
+		IsAdmin:  user.IsAdmin,
+		Banned:   user.Banned,
+	})
+}
+
+func (h *Handler) SetUserBan(c *fiber.Ctx) error {
+	username := strings.TrimSpace(c.Params("username"))
+	if username == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "missing username"})
+	}
+	var payload struct {
+		Banned bool `json:"banned"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid request"})
+	}
+
+	user, err := h.authSvc.SetBanned(c.Context(), username, payload.Banned)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "user not found"})
+	}
+
+	return c.JSON(model.UserPublic{
+		ID:       user.ID,
+		Username: user.Username,
+		IsAdmin:  user.IsAdmin,
+		Banned:   user.Banned,
+	})
+}
+
+func (h *Handler) DeleteUser(c *fiber.Ctx) error {
+	username := strings.TrimSpace(c.Params("username"))
+	if username == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "missing username"})
+	}
+	if err := h.authSvc.DeleteUser(c.Context(), username); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to delete user"})
+	}
+	return c.JSON(fiber.Map{"status": "ok"})
+}
+
+func (h *Handler) DeletePriceByCode(c *fiber.Ctx) error {
+	code := strings.TrimSpace(c.Params("code"))
+	if code == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "missing code"})
+	}
+
+	removedTime, removedPrice, err := h.svc.DeletePricesByCode(c.Context(), strings.ToUpper(code))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to delete code"})
+	}
+	return c.JSON(fiber.Map{
+		"status":        "ok",
+		"removed_time":  removedTime,
+		"removed_price": removedPrice,
+	})
+}
+
 func (h *Handler) authMiddleware(c *fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
@@ -155,6 +261,37 @@ func (h *Handler) authMiddleware(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "invalid token claims"})
 	}
 
+	username := ""
+	if val, ok := claims["username"].(string); ok {
+		username = val
+	} else if val, ok := claims["name"].(string); ok {
+		username = val
+	}
+	if username != "" {
+		banned, err := h.authSvc.IsBanned(c.Context(), username)
+		if err == nil && banned {
+			return c.Status(403).JSON(fiber.Map{"error": "account banned"})
+		}
+	}
+
 	c.Locals("user", claims)
+	return c.Next()
+}
+
+func (h *Handler) adminMiddleware(c *fiber.Ctx) error {
+	claims, ok := c.Locals("user").(jwt.MapClaims)
+	if !ok {
+		return c.Status(403).JSON(fiber.Map{"error": "access denied"})
+	}
+	isAdmin, _ := claims["admin"].(bool)
+	if !isAdmin {
+		// Some JWT libs marshal bools as float64
+		if v, ok := claims["admin"].(float64); ok {
+			isAdmin = v == 1
+		}
+	}
+	if !isAdmin {
+		return c.Status(403).JSON(fiber.Map{"error": "admin required"})
+	}
 	return c.Next()
 }

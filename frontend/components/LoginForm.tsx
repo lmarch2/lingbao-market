@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Loader2, LogIn } from 'lucide-react';
-import { signIn } from 'next-auth/react';
+import { AlertCircle, Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
+import { getSession, signIn } from 'next-auth/react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { apiUrl } from '@/lib/api';
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [captchaId, setCaptchaId] = useState('');
   const [captchaValue, setCaptchaValue] = useState('');
   const [captchaInput, setCaptchaInput] = useState('');
@@ -62,6 +63,19 @@ export default function LoginForm() {
         return;
       }
 
+      const session = await getSession();
+      const token = (session as any)?.accessToken as string | undefined;
+      if (token) {
+        const adminCheck = await fetch(apiUrl('/api/v1/admin/users'), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (adminCheck.ok) {
+          router.push(`/${locale}/admin`);
+          return;
+        }
+      }
       router.push(`/${locale}`);
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -94,14 +108,25 @@ export default function LoginForm() {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Password</label>
-            <Input
-              type="password"
-              placeholder="Your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Captcha</label>

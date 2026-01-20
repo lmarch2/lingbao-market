@@ -1,13 +1,14 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
-import { Copy, Check, Clock, TrendingUp } from 'lucide-react';
+import { Copy, Check, Clock, Trash2, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useTranslations } from 'next-intl';
+import { apiUrl } from '@/lib/api';
 
 interface PriceItem {
   code: string;
@@ -19,11 +20,14 @@ interface PriceItem {
 interface MarketCardProps {
   item: PriceItem;
   index: number;
+  adminToken?: string;
+  onDeleted?: () => void;
 }
 
-export default function MarketCard({ item, index }: MarketCardProps) {
+export default function MarketCard({ item, index, adminToken, onDeleted }: MarketCardProps) {
   const t = useTranslations('Card');
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const isHigh = item.price >= 900;
@@ -34,6 +38,30 @@ export default function MarketCard({ item, index }: MarketCardProps) {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDelete = async () => {
+    if (!adminToken) {
+      return;
+    }
+    const confirmed = window.confirm(t('confirm_delete', { code: item.code }));
+    if (!confirmed) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(apiUrl(`/api/v1/admin/prices/${item.code}`), {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+      if (res.ok) {
+        onDeleted?.();
+      }
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -85,17 +113,31 @@ export default function MarketCard({ item, index }: MarketCardProps) {
               {formatDistanceToNow(item.ts, { addSuffix: true }).replace('about ', '')}
             </div>
             
-            <Button
-              onClick={handleCopy}
-              size="icon"
-              variant="ghost"
-              aria-label={copied ? t('copy_success') : t('copy_text', { price: item.price, code: item.code })}
-              className={`h-8 w-8 rounded-full transition-all duration-300 ${
-                copied ? 'bg-black/10 text-foreground hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20' : 'hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10'
-              }`}
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </Button>
+            <div className="flex items-center gap-2">
+              {adminToken && (
+                <Button
+                  onClick={handleDelete}
+                  size="icon"
+                  variant="ghost"
+                  disabled={deleting}
+                  aria-label={t('delete')}
+                  className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+              <Button
+                onClick={handleCopy}
+                size="icon"
+                variant="ghost"
+                aria-label={copied ? t('copy_success') : t('copy_text', { price: item.price, code: item.code })}
+                className={`h-8 w-8 rounded-full transition-all duration-300 ${
+                  copied ? 'bg-black/10 text-foreground hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20' : 'hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10'
+                }`}
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>

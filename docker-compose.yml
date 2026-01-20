@@ -26,6 +26,8 @@ services:
       - APP_ENV=dev
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=lmarchyyds666.
     depends_on:
       redis:
         condition: service_healthy

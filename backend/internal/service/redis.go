@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lingbao-market/backend/internal/model"
@@ -51,14 +52,102 @@ func (s *PriceService) AddPrice(ctx context.Context, item model.PriceItem) error
 	cutoff := time.Now().Add(-24 * time.Hour).UnixMilli()
 	pipe.ZRemRangeByScore(ctx, keyPriceTime, "-inf", fmt.Sprintf("%d", cutoff))
 
-	// We should also trim the Price index to keep it consistent-ish,
-	// but strictly syncing two ZSETs by score removal is tricky without unique IDs.
-	// For this high-throughput demo, we'll keep the price index simply capped by size or let it expire via TTL if we set one.
-	// Let's just keep the last 1000 items in the price index to prevent bloat for now.
-	pipe.ZRemRangeByRank(ctx, keyPriceValue, 0, -1001)
-
 	_, err = pipe.Exec(ctx)
 	return err
+}
+
+func (s *PriceService) CleanupExpired(ctx context.Context, cutoff time.Time) (int64, int64, error) {
+	cutoffMillis := cutoff.UnixMilli()
+
+	removedTime, err := s.rdb.ZRemRangeByScore(ctx, keyPriceTime, "-inf", fmt.Sprintf("%d", cutoffMillis)).Result()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var removedPrice int64
+	var cursor uint64
+	for {
+		vals, nextCursor, err := s.rdb.ZScan(ctx, keyPriceValue, cursor, "*", 200).Result()
+		if err != nil {
+			return removedTime, removedPrice, err
+		}
+
+		var toRemove []interface{}
+		for i := 0; i < len(vals); i += 2 {
+			member := vals[i]
+			var item model.PriceItem
+			if err := json.Unmarshal([]byte(member), &item); err != nil {
+				continue
+			}
+			if item.Timestamp > 0 && item.Timestamp < cutoffMillis {
+				toRemove = append(toRemove, member)
+			}
+		}
+
+		if len(toRemove) > 0 {
+			removed, err := s.rdb.ZRem(ctx, keyPriceValue, toRemove...).Result()
+			if err != nil {
+				return removedTime, removedPrice, err
+			}
+			removedPrice += removed
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return removedTime, removedPrice, nil
+}
+
+func (s *PriceService) DeletePricesByCode(ctx context.Context, code string) (int64, int64, error) {
+	removedTime, err := s.removeByCode(ctx, keyPriceTime, code)
+	if err != nil {
+		return 0, 0, err
+	}
+	removedPrice, err := s.removeByCode(ctx, keyPriceValue, code)
+	if err != nil {
+		return removedTime, 0, err
+	}
+	return removedTime, removedPrice, nil
+}
+
+func (s *PriceService) removeByCode(ctx context.Context, key, code string) (int64, error) {
+	var removedTotal int64
+	var cursor uint64
+	for {
+		vals, nextCursor, err := s.rdb.ZScan(ctx, key, cursor, "*", 200).Result()
+		if err != nil {
+			return removedTotal, err
+		}
+
+		var toRemove []interface{}
+		for i := 0; i < len(vals); i += 2 {
+			member := vals[i]
+			var item model.PriceItem
+			if err := json.Unmarshal([]byte(member), &item); err != nil {
+				continue
+			}
+			if strings.EqualFold(item.Code, code) {
+				toRemove = append(toRemove, member)
+			}
+		}
+
+		if len(toRemove) > 0 {
+			removed, err := s.rdb.ZRem(ctx, key, toRemove...).Result()
+			if err != nil {
+				return removedTotal, err
+			}
+			removedTotal += removed
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	return removedTotal, nil
 }
 
 // GetLatestFeed returns items sorted by the requested criteria

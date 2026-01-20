@@ -32,12 +32,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!res.ok) return null;
 
           const user = await res.json();
-          // User: { token, username, id }
+          // User: { token, username, id, isAdmin }
           if (user.token) {
             return {
                 id: user.id,
                 name: user.username,
                 accessToken: user.token,
+                isAdmin: user.isAdmin,
             }
           }
           return null
@@ -53,12 +54,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.accessToken = (user as any).accessToken
         token.id = user.id
+        token.isAdmin = (user as any).isAdmin
       }
       return token
     },
     session: async ({ session, token }) => {
       if (token) {
         (session as any).accessToken = token.accessToken
+        if (session.user) {
+          (session.user as any).isAdmin = token.isAdmin
+        }
         // session.user.id = token.id as string
       }
       return session

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowDownUp, Loader2, RefreshCw } from 'lucide-react';
@@ -7,6 +7,7 @@ import MarketCard from './MarketCard';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
 import { apiUrl } from '@/lib/api';
+import { useSession } from 'next-auth/react';
 
 interface PriceItem {
   code: string;
@@ -19,18 +20,36 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function PriceFeed() {
   const t = useTranslations('Feed');
-  const [sortBy, setSortBy] = useState<'time' | 'price'>('time');
+  const [sortBy, setSortBy] = useState<'time' | 'price'>('price');
+  const [hasNewHigh, setHasNewHigh] = useState(false);
+  const lastMaxPrice = useRef<number | null>(null);
   const reduceMotion = useReducedMotion();
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken as string | undefined;
   
   const { data: prices, error, isLoading, mutate } = useSWR<PriceItem[]>(
     apiUrl(`/api/v1/feed?sort=${sortBy}`),
     fetcher,
     { 
-      refreshInterval: 5000, // Slow down to 5s to reduce load
+      refreshInterval: 10000,
       revalidateOnFocus: false, // Don't spam when tab switching
       errorRetryCount: 3
     }
   );
+
+  useEffect(() => {
+    if (!prices || prices.length === 0) {
+      return;
+    }
+    const maxPrice = prices.reduce((max, item) => Math.max(max, item.price), 0);
+    if (lastMaxPrice.current !== null && maxPrice > lastMaxPrice.current) {
+      setHasNewHigh(true);
+      const timeout = window.setTimeout(() => setHasNewHigh(false), 6000);
+      lastMaxPrice.current = maxPrice;
+      return () => window.clearTimeout(timeout);
+    }
+    lastMaxPrice.current = maxPrice;
+  }, [prices]);
 
   return (
     <div className="w-full space-y-6">
@@ -43,6 +62,11 @@ export default function PriceFeed() {
                 </span>
                 <span className="font-medium">{t('live_label')}</span>
                 <span className="text-xs opacity-50">• {prices?.length || 0} {t('listings')}</span>
+                {hasNewHigh && (
+                  <span className="ml-2 rounded-full border border-black/10 dark:border-white/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.2em] text-foreground">
+                    {t('new_high')}
+                  </span>
+                )}
             </div>
             
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -94,6 +118,8 @@ export default function PriceFeed() {
                         key={`${item.code}-${item.ts}`} 
                         item={item} 
                         index={idx}
+                        adminToken={token}
+                        onDeleted={() => mutate()}
                     />
                 ))}
             </AnimatePresence>

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { signOut, useSession } from "next-auth/react";
-import { LogIn, LogOut, UserPlus } from "lucide-react";
+import { LogIn, LogOut, ShieldCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -48,47 +48,54 @@ export default function AccountMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-56">
-        {session ? (
-          <>
-            <DropdownMenuLabel className="flex flex-col gap-1">
-              <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                {t("title")}
-              </span>
-              <span className="text-sm font-semibold">
-                {session.user?.name || t("anonymous")}
-              </span>
-              {session.user?.email && (
-                <span className="text-xs text-muted-foreground">
-                  {session.user.email}
+        <>
+          <DropdownMenuLabel className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              {session ? t("title") : t("guest")}
+            </span>
+            {session && (
+              <>
+                <span className="text-sm font-semibold">
+                  {session.user?.name || t("anonymous")}
                 </span>
-              )}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+                {session.user?.email && (
+                  <span className="text-xs text-muted-foreground">
+                    {session.user.email}
+                  </span>
+                )}
+              </>
+            )}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href={`/${locale}/admin`} className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              {t("admin_console")}
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {session ? (
             <DropdownMenuItem onClick={() => signOut({ callbackUrl: `/${locale}` })}>
               <LogOut className="h-4 w-4" />
               {t("sign_out")}
             </DropdownMenuItem>
-          </>
-        ) : (
-          <>
-            <DropdownMenuLabel className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              {t("guest")}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href={`/${locale}/auth/login`} className="flex items-center gap-2">
-                <LogIn className="h-4 w-4" />
-                {t("sign_in")}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/${locale}/auth/register`} className="flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                {t("register")}
-              </Link>
-            </DropdownMenuItem>
-          </>
-        )}
+          ) : (
+            <>
+              <DropdownMenuItem asChild>
+                <Link href={`/${locale}/auth/login`} className="flex items-center gap-2">
+                  <LogIn className="h-4 w-4" />
+                  {t("sign_in")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/${locale}/auth/register`} className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  {t("register")}
+                </Link>
+              </DropdownMenuItem>
+            </>
+          )}
+        </>
       </DropdownMenuContent>
     </DropdownMenu>
   );
