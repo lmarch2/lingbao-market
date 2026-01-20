@@ -1,0 +1,93 @@
+{
+  "Metadata": {
+    "title": "Lingbao Market - High Frequency Exchange",
+    "description": "Real-time Lingbao price sharing platform"
+  },
+  "Navbar": {
+    "title": "Lingbao Market",
+    "subtitle": "High Frequency Exchange"
+  },
+  "Hero": {
+    "kicker": "Community-Led Price Network",
+    "title_prefix": "Maximize Your",
+    "title_highlight": "Lingbao",
+    "title_suffix": "Value.",
+    "description": "The community-driven high frequency exchange. Real-time data, instant sorting, and zero latency.",
+    "cta_primary": "Share a price",
+    "cta_secondary": "View live market",
+    "stat_1_label": "Refresh cycle",
+    "stat_1_value": "5s",
+    "stat_2_label": "Community entries",
+    "stat_2_value": "Always open",
+    "stat_3_label": "Signal quality",
+    "stat_3_value": "Verified",
+    "panel_title": "Market Pulse",
+    "panel_subtitle": "Adaptive pricing stream",
+    "panel_live": "Live sync",
+    "panel_item_1_title": "Ultra-fast updates",
+    "panel_item_1_desc": "Streamed from players every few seconds.",
+    "panel_item_2_title": "Trusted by the community",
+    "panel_item_2_desc": "Shared signals and self-governed pricing.",
+    "panel_item_3_title": "Always in motion",
+    "panel_item_3_desc": "Sort, refresh, and act without lag."
+  },
+  "Submit": {
+    "title": "Submit Entry",
+    "description": "Share your Lingbao price with the community.",
+    "signin_prompt": "Sign in to share your Lingbao price. You can still view the live market without an account.",
+    "code_placeholder": "A123",
+    "price_placeholder": "Price",
+    "button": "Share",
+    "loading": "Sharing...",
+    "signin_button": "Sign In",
+    "register_button": "Register"
+  },
+  "Feed": {
+    "title": "Market Stream",
+    "subtitle": "Live listings from the community",
+    "live_label": "Live Market",
+    "listings": "active listings",
+    "sort_placeholder": "Sort",
+    "sort_latest": "Latest Arrivals",
+    "sort_highest": "Highest Price",
+    "loading": "Syncing with server...",
+    "error": "Unable to connect to market stream.",
+    "retry": "Retry Connection",
+    "refresh": "Refresh feed",
+    "empty": "No listings yet. Be the first to share!"
+  },
+  "Features": {
+    "speed_title": "Latency-first updates",
+    "speed_desc": "Built for high frequency sharing and instant visibility.",
+    "trust_title": "Open and transparent",
+    "trust_desc": "Every submission is community-driven and verified on refresh.",
+    "signal_title": "Actionable signals",
+    "signal_desc": "Sort by time or price to capture the best entries fast."
+  },
+  "Card": {
+    "label": "Lingbao Code",
+    "currency": "Gold",
+    "hot": "Hot",
+    "copy_success": "Copied!",
+    "copy_text": "Lingbao Market: My cake price is {price}! Code [{code}], come quickly!"
+  },
+  "Notices": {
+    "welcome_1": "Welcome to <bold>Lingbao Market</bold> - The open price exchange.",
+    "welcome_2": "Prices are updated in real-time by community submissions.",
+    "welcome_3": "This project is open-source and free for everyone.",
+    "warning": "Data is user-submitted and may vary from actual in-game prices."
+  },
+  "Account": {
+    "title": "Account",
+    "guest": "Guest",
+    "sign_in": "Sign In",
+    "register": "Register",
+    "sign_out": "Sign Out",
+    "menu_aria": "Open account menu",
+    "avatar_alt": "Account avatar",
+    "anonymous": "Unnamed"
+  },
+  "Footer": {
+    "copyright": "© 2026 Lingbao Market. Open Source & Ad-Free."
+  }
+}
