@@ -24,7 +24,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("REDIS_ADDR", "localhost:6379")
 	viper.SetDefault("REDIS_PASSWORD", "")
 	viper.SetDefault("JWT_SECRET", "lingbao-secret-key-change-me")
-	viper.SetDefault("CLEANUP_TIME", "03:00")
+	viper.SetDefault("CLEANUP_TIME", "00:00")
 	viper.SetDefault("CLEANUP_TIMEZONE", "Local")
 	viper.SetDefault("ADMIN_USERNAME", "")
 	viper.SetDefault("ADMIN_PASSWORD", "")

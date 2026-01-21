@@ -28,6 +28,8 @@ services:
       - REDIS_PASSWORD=
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=lmarchyyds666.
+      - CLEANUP_TIME=00:00
+      - CLEANUP_TIMEZONE=Local
     depends_on:
       redis:
         condition: service_healthy
