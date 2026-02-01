@@ -5,7 +5,7 @@
   },
   "Navbar": {
     "title": "Lingbao Market",
-    "subtitle": "High Frequency Exchange"
+    "github_aria": "View GitHub repository"
   },
   "Hero": {
     "kicker": "Community-Led Price Network",
@@ -32,9 +32,9 @@
     "panel_item_3_desc": "Sort, refresh, and act without lag."
   },
   "Submit": {
-    "title": "Submit Entry",
-    "description": "Share your Lingbao price.",
-    "signin_prompt": "Sign in to share your Lingbao price. You can still view the live market without an account.",
+    "title": "Code",
+    "description": "Share your Lingbao code.",
+    "signin_prompt": "Sign in to share your Lingbao code. You can still view the live market without an account.",
     "code_placeholder": "A123",
     "price_placeholder": "Price",
     "button": "Share",
@@ -127,5 +127,42 @@
   },
   "Footer": {
     "copyright": "© 2026 Lingbao Market. Open Source & Ad-Free."
+  },
+  "Auth": {
+    "login_title": "Welcome Back",
+    "login_description": "Sign in to publish prices.",
+    "register_title": "Join Lingbao Market",
+    "register_description": "Create an account to start sharing prices.",
+    "username_label": "Username",
+    "username_placeholder": "Your username",
+    "password_label": "Password",
+    "password_placeholder": "Your password",
+    "confirm_password_label": "Confirm Password",
+    "confirm_password_placeholder": "Re-enter your password",
+    "captcha_label": "Captcha",
+    "captcha_placeholder": "Enter captcha",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
+    "login_button": "Sign In",
+    "register_button": "Register",
+    "error_invalid_credentials": "Invalid username, password, or captcha",
+    "error_login_failed": "Login failed. Please try again.",
+    "error_passwords_mismatch": "Passwords do not match",
+    "error_captcha_required": "Captcha is required",
+    "error_captcha_load": "Failed to load captcha",
+    "pick_username_placeholder": "Pick a username",
+    "choose_password_placeholder": "Choose a password",
+    "reenter_password_placeholder": "Re-enter your password"
+  },
+  "Theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "Language": {
+    "switch": "Switch language",
+    "en": "English",
+    "zh": "中文"
   }
 }

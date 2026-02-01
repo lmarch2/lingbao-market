@@ -149,17 +149,17 @@ export default function AdminPage() {
       )}
 
       {!accessDenied && (
-        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-8">
-          <section className="rounded-3xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 p-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:gap-8">
+          <section className="rounded-3xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <h2 className="text-lg font-semibold">{t("users_title")}</h2>
-              <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading}>
+              <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading} className="w-full sm:w-auto">
                 {loading ? t("loading") : t("refresh")}
               </Button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                   <tr>
                     <th className="py-2 text-left">{t("col_user")}</th>
@@ -179,18 +179,19 @@ export default function AdminPage() {
                         {user.banned ? t("status_banned") : t("status_active")}
                       </td>
                       <td className="py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1 sm:gap-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleBanToggle(user)}
+                            className="h-9 min-h-[36px] px-2 sm:px-3"
                           >
                             {user.banned ? t("unban") : t("ban")}
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-destructive"
+                            className="text-destructive h-9 min-h-[36px] px-2 sm:px-3"
                             onClick={() => handleDeleteUser(user)}
                           >
                             {t("delete")}

@@ -4,6 +4,7 @@ import PriceFeed from '@/components/PriceFeed';
 import SubmitForm from '@/components/SubmitForm';
 import AccountMenu from '@/components/AccountMenu';
 import { ModeToggle } from '@/components/mode-toggle';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
@@ -38,24 +39,22 @@ export default function Home() {
       <header className="sticky top-0 z-50 w-full border-b border-black/5 dark:border-white/10 bg-[#f8f7f4]/90 dark:bg-[#0f1114]/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between mx-auto px-4 md:px-6">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full border border-black/10 dark:border-white/20 flex items-center justify-center">
-              <span className="text-xs font-semibold tracking-[0.3em] ml-[0.2em]">LB</span>
+            <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center">
+              <span className="text-background text-sm font-bold">灵</span>
             </div>
-            <div className="hidden sm:flex flex-col leading-tight">
-              <span className="font-semibold text-sm tracking-tight">{tNav('title')}</span>
-              <span className="text-xs text-muted-foreground">{tNav('subtitle')}</span>
-            </div>
+            <span className="hidden sm:inline font-semibold text-sm tracking-tight">{tNav('title')}</span>
           </div>
           
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <ModeToggle />
             <AccountMenu />
             <Button
               asChild
               variant="ghost"
               size="icon"
-              className="rounded-full"
-              aria-label="GitHub"
+              className="h-11 w-11 md:h-9 md:w-9 rounded-full"
+              aria-label={tNav('github_aria')}
             >
               <a
                 href="https://github.com/lmarch2/lingbao-market"

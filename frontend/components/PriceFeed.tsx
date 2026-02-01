@@ -72,19 +72,19 @@ export default function PriceFeed() {
             
             <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Select value={sortBy} onValueChange={(v: 'time' | 'price') => setSortBy(v)}>
-                    <SelectTrigger className="w-full sm:w-[160px] h-9 bg-white/70 dark:bg-white/5 backdrop-blur-sm border-black/10 dark:border-white/10">
+                    <SelectTrigger className="w-full sm:w-[160px] h-11 sm:h-9 bg-white/70 dark:bg-white/5 backdrop-blur-sm border-black/10 dark:border-white/10">
                         <SelectValue placeholder={t('sort_placeholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="time">{t('sort_latest')}</SelectItem>
-                        <SelectItem value="price">{t('sort_highest')}</SelectItem>
+                        <SelectItem value="time" className="min-h-[44px] sm:min-h-[36px]">{t('sort_latest')}</SelectItem>
+                        <SelectItem value="price" className="min-h-[44px] sm:min-h-[36px]">{t('sort_highest')}</SelectItem>
                     </SelectContent>
                 </Select>
                 
                 <Button 
                     variant="outline" 
                     size="icon" 
-                    className="h-9 w-9 shrink-0 border-black/10 dark:border-white/10"
+                    className="h-11 w-11 sm:h-9 sm:w-9 shrink-0 border-black/10 dark:border-white/10"
                     onClick={() => mutate()}
                     aria-label={t('refresh')}
                 >

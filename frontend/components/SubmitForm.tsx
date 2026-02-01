@@ -133,9 +133,9 @@ export default function SubmitForm() {
             type="submit" 
             disabled={loading}
             size="lg"
-            className="h-11 px-7 rounded-full bg-foreground text-background font-semibold hover:bg-foreground/90 transition-colors"
+            className="h-11 px-6 rounded-full bg-foreground text-background font-semibold hover:bg-foreground/90 transition-colors whitespace-nowrap"
           >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <div className="flex items-center"><Plus className="mr-2 h-5 w-5" /> {t('button')}</div>}
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Plus className="h-5 w-5 shrink-0" /><span className="ml-2">{t('button')}</span></>}
           </Button>
         </form>
       </div>
