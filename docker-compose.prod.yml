@@ -1,7 +1,28 @@
-# Production docker-compose using pre-built images from GitHub Container Registry
-# Usage: docker-compose -f docker-compose.prod.yml up -d
+# Production deployment with automatic HTTPS via Caddy
+# Usage:
+#   1. Set DOMAIN in .env (e.g., DOMAIN=king.lmarch2.top)
+#   2. docker-compose -f docker-compose.prod.yml up -d
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: lingbao-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:?DOMAIN is required}
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - lingbao-net
+    restart: always
+
   redis:
     image: redis:7-alpine
     container_name: lingbao-redis
@@ -20,8 +41,6 @@ services:
   backend:
     image: ghcr.io/lmarch2/lingbao-backend:latest
     container_name: lingbao-backend
-    ports:
-      - "${BACKEND_PORT:-8080}:8080"
     environment:
       - APP_ENV=production
       - REDIS_ADDR=redis:6379
@@ -40,12 +59,10 @@ services:
   frontend:
     image: ghcr.io/lmarch2/lingbao-frontend:latest
     container_name: lingbao-frontend
-    ports:
-      - "127.0.0.1:${PORT:-3000}:3000"
     environment:
       - AUTH_SECRET=${AUTH_SECRET:?AUTH_SECRET is required}
       - AUTH_TRUST_HOST=true
-      - AUTH_URL=${AUTH_URL:?AUTH_URL is required}
+      - AUTH_URL=https://${DOMAIN}
       - AUTH_BACKEND_URL=http://backend:8080
     depends_on:
       - backend
@@ -59,3 +76,5 @@ networks:
 
 volumes:
   redis_data:
+  caddy_data:
+  caddy_config:
