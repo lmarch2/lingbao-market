@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/url"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -239,6 +240,13 @@ func (h *Handler) DeleteUser(c *fiber.Ctx) error {
 
 func (h *Handler) DeletePriceByCode(c *fiber.Ctx) error {
 	code := strings.TrimSpace(c.Params("code"))
+	if code == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "missing code"})
+	}
+	if decoded, err := url.PathUnescape(code); err == nil {
+		code = decoded
+	}
+	code = strings.TrimSpace(code)
 	if code == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "missing code"})
 	}
