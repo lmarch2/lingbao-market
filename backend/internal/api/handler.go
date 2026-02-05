@@ -34,8 +34,9 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	api.Post("/auth/register", h.Register)
 	api.Post("/auth/login", h.Login)
 
-	// Protected
-	api.Post("/submit", h.authMiddleware, h.SubmitPrice)
+	// Public (login not required)
+	api.Post("/submit", h.SubmitPrice)
+	// api.Post("/submit", h.authMiddleware, h.SubmitPrice) // Keep for reuse
 
 	// Admin
 	admin := api.Group("/admin", h.authMiddleware, h.adminMiddleware)

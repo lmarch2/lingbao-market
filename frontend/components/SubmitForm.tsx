@@ -120,6 +120,9 @@ export default function SubmitForm() {
   const [focused, setFocused] = useState(false);
   const reduceMotion = useReducedMotion();
 
+  // NOTE: Sharing no longer requires login. Keep this switch for easy rollback.
+  const requireLoginToShare = false;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code || !price) return;
@@ -127,13 +130,15 @@ export default function SubmitForm() {
     setLoading(true);
     try {
       const token = getAccessToken(session);
-      if (!token) return;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
       const res = await fetch(apiUrl('/api/v1/submit'), {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify({
           code: code.toUpperCase(),
           price: Number(price),
@@ -151,7 +156,7 @@ export default function SubmitForm() {
     }
   };
 
-  if (!session) {
+  if (requireLoginToShare && !session) {
     return (
       <div className="w-full max-w-2xl mx-auto mb-10 flex flex-col items-center gap-4 text-center">
         <p className="text-sm text-muted-foreground max-w-lg">
