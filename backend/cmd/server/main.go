@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -60,7 +61,30 @@ func main() {
 	app.Use(limiter.New(limiter.Config{
 		Max:        10,
 		Expiration: 30 * time.Second,
+		Next: func(c *fiber.Ctx) bool {
+			if c.Method() == fiber.MethodOptions {
+				return true
+			}
+			if c.Method() == fiber.MethodGet && c.Path() == "/api/v1/feed" {
+				return true
+			}
+			return false
+		},
 		KeyGenerator: func(c *fiber.Ctx) string {
+			xff := strings.TrimSpace(c.Get(fiber.HeaderXForwardedFor))
+			if xff != "" {
+				parts := strings.Split(xff, ",")
+				if len(parts) > 0 {
+					ip := strings.TrimSpace(parts[0])
+					if ip != "" {
+						return ip
+					}
+				}
+			}
+			xri := strings.TrimSpace(c.Get("X-Real-IP"))
+			if xri != "" {
+				return xri
+			}
 			return c.IP()
 		},
 		LimitReached: func(c *fiber.Ctx) error {

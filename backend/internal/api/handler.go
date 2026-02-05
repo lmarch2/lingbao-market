@@ -1,8 +1,9 @@
 package api
 
 import (
-	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -121,12 +122,23 @@ func (h *Handler) SubmitPrice(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid request"})
 	}
 
+	req.Code = strings.TrimSpace(req.Code)
+	req.Code = strings.Join(strings.Fields(req.Code), "")
+	req.Code = strings.ToUpper(req.Code)
+
 	if req.Code == "" || req.Price <= 0 {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid data"})
 	}
 
-	// Validate Code Format (Alphanumeric, 3-12 chars)
-	if match, _ := regexp.MatchString(`^[A-Z0-9]{3,12}$`, req.Code); !match {
+	// Validate Code Format (letters/digits incl. Chinese, 3-12 chars)
+	runeCount := utf8.RuneCountInString(req.Code)
+	if runeCount < 3 || runeCount > 12 {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid code format"})
+	}
+	for _, r := range req.Code {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			continue
+		}
 		return c.Status(400).JSON(fiber.Map{"error": "invalid code format"})
 	}
 
