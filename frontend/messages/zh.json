@@ -70,7 +70,7 @@
     "currency": "金",
     "hot": "热门",
     "copy_success": "已复制！",
-    "copy_text": "灵宝市场：我的蛋糕价格是 {price}！代码 [{code}]，快来！",
+    "copy_text": "王者荣耀【{code}】我的小马糕今天{price}块，复制链接来我的市集出售，马年上分大吉！",
     "delete": "删除",
     "confirm_delete": "删除代码 {code} 的所有条目？"
   },
