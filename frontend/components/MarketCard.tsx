@@ -10,6 +10,23 @@ import { Card } from '@/components/ui/card';
 import { useTranslations } from 'next-intl';
 import { apiUrl } from '@/lib/api';
 
+function extractCodeForDisplay(rawCode: string): string {
+  const text = rawCode.trim();
+  const patterns = [
+    /【([^】]{1,64})】/,
+    /\[([^\]]{1,64})\]/,
+    /（([^）]{1,64})）/,
+    /\(([^)]{1,64})\)/,
+    /《([^》]{1,64})》/,
+  ];
+
+  for (const re of patterns) {
+    const match = text.match(re);
+    if (match?.[1]) return match[1].trim();
+  }
+  return text;
+}
+
 interface PriceItem {
   code: string;
   price: number;
@@ -38,10 +55,11 @@ export default function MarketCard({
   const reduceMotion = useReducedMotion();
 
   const isHigh = item.price >= 900;
+  const displayCode = extractCodeForDisplay(item.code);
   
   const handleCopy = () => {
     // Clean, direct copy text
-    const text = t('copy_text', { price: item.price, code: item.code });
+    const text = t('copy_text', { price: item.price, code: displayCode });
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -57,7 +75,7 @@ export default function MarketCard({
     }
     setDeleting(true);
     try {
-      const res = await fetch(apiUrl(`/api/v1/admin/prices/${item.code}`), {
+      const res = await fetch(apiUrl(`/api/v1/admin/prices/${encodeURIComponent(item.code)}`), {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${adminToken}`,
@@ -94,7 +112,7 @@ export default function MarketCard({
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">{t('label')}</span>
               <span className="font-mono text-xl font-bold tracking-tight text-foreground">
-                {item.code}
+                {displayCode}
               </span>
             </div>
             {isHigh && (
@@ -106,11 +124,10 @@ export default function MarketCard({
           </div>
 
           {/* Body: Price */}
-          <div className="flex-1 flex items-baseline gap-1">
+          <div className="flex-1 flex items-baseline">
             <span className="text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
               {item.price}
             </span>
-            <span className="text-sm text-muted-foreground font-medium">{t('currency')}</span>
           </div>
 
           {/* Footer: Meta & Action */}
@@ -137,7 +154,7 @@ export default function MarketCard({
                 onClick={handleCopy}
                 size="icon"
                 variant="ghost"
-                aria-label={copied ? t('copy_success') : t('copy_text', { price: item.price, code: item.code })}
+                aria-label={copied ? t('copy_success') : t('copy_text', { price: item.price, code: displayCode })}
                 className={`h-8 w-8 rounded-full transition-all duration-300 ${
                   copied ? 'bg-black/10 text-foreground hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20' : 'hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10'
                 }`}

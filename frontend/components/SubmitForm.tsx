@@ -8,6 +8,108 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { apiUrl } from '@/lib/api';
 
+type ParsedListingPaste = {
+  code?: string;
+  price?: string;
+};
+
+const CODE_INPUT_MAX_LENGTH = 12;
+const PRICE_MAX = 999;
+
+function getAccessToken(session: unknown): string | undefined {
+  if (!session || typeof session !== 'object') return undefined;
+  const token = (session as { accessToken?: unknown }).accessToken;
+  return typeof token === 'string' ? token : undefined;
+}
+
+function normalizeCode(raw: string): string | undefined {
+  const compact = raw.trim().replace(/\s+/g, '');
+  if (!compact) return undefined;
+  return compact.toUpperCase();
+}
+
+function extractBracketedText(text: string): string | undefined {
+  const patterns = [
+    /【([^】]{1,64})】/,
+    /\[([^\]]{1,64})\]/,
+    /（([^）]{1,64})）/,
+    /\(([^)]{1,64})\)/,
+    /《([^》]{1,64})》/,
+  ];
+
+  for (const re of patterns) {
+    const match = text.match(re);
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
+}
+
+function extractCodeFromText(text: string): string | undefined {
+  const bracketed = extractBracketedText(text);
+  if (bracketed) {
+    const normalized = normalizeCode(bracketed);
+    if (!normalized) return undefined;
+    return normalized.slice(0, CODE_INPUT_MAX_LENGTH);
+  }
+
+  const tokens = text
+    .replace(/[\r\n]+/g, ' ')
+    .split(/[|｜\s]+/)
+    .map((token) => normalizeCode(token))
+    .filter((token): token is string => Boolean(token));
+
+  for (let i = tokens.length - 1; i >= 0; i -= 1) {
+    const token = tokens[i];
+    if (token.length <= CODE_INPUT_MAX_LENGTH && /[A-Z0-9]/.test(token)) {
+      return token;
+    }
+  }
+
+  const compact = normalizeCode(text);
+  if (compact && compact.length <= CODE_INPUT_MAX_LENGTH) return compact;
+
+  return undefined;
+}
+
+function normalizePrice(raw: string): string | undefined {
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return undefined;
+  const value = Math.floor(num);
+  if (value < 1 || value > PRICE_MAX) return undefined;
+  return String(value);
+}
+
+function extractPriceFromText(text: string): string | undefined {
+  const normalized = text.replace(/[,，]/g, ' ');
+  const patterns = [
+    /[￥¥]\s*(\d+(?:\.\d+)?)/,
+    /(\d+(?:\.\d+)?)\s*(?:块|元|金)/,
+    /(?:价格|价钱|售价|卖|出)\s*[:：]?\s*(\d+(?:\.\d+)?)/,
+  ];
+
+  for (const re of patterns) {
+    const match = normalized.match(re);
+    if (match?.[1]) {
+      const value = normalizePrice(match[1]);
+      if (value) return value;
+    }
+  }
+
+  const numbers = normalized.match(/\d+(?:\.\d+)?/g);
+  if (numbers && numbers.length === 1) {
+    return normalizePrice(numbers[0]);
+  }
+  return undefined;
+}
+
+function parseListingPaste(text: string): ParsedListingPaste {
+  const normalized = text.replace(/\r\n/g, '\n').trim();
+  return {
+    code: extractCodeFromText(normalized),
+    price: extractPriceFromText(normalized),
+  };
+}
+
 export default function SubmitForm() {
   const t = useTranslations('Submit');
   const { data: session } = useSession();
@@ -24,7 +126,8 @@ export default function SubmitForm() {
 
     setLoading(true);
     try {
-      const token = (session as any)?.accessToken;
+      const token = getAccessToken(session);
+      if (!token) return;
       const res = await fetch(apiUrl('/api/v1/submit'), {
         method: 'POST',
         headers: { 
@@ -101,6 +204,17 @@ export default function SubmitForm() {
                 placeholder={t('code_placeholder')}
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData('text');
+                  if (!pasted) return;
+
+                  const parsed = parseListingPaste(pasted);
+                  if (!parsed.code && !parsed.price) return;
+
+                  e.preventDefault();
+                  if (parsed.code) setCode(parsed.code);
+                  if (parsed.price) setPrice(parsed.price);
+                }}
                 className="border-0 bg-transparent shadow-none focus-visible:ring-0 pl-2 h-11 text-base uppercase font-mono tracking-[0.2em]"
                 maxLength={12}
                 required
