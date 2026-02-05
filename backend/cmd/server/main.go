@@ -152,9 +152,8 @@ func scheduleDailyCleanup(ctx context.Context, svc *service.PriceService, hour, 
 			timer.Stop()
 			return
 		case <-timer.C:
-			cutoff := time.Now().Add(-24 * time.Hour)
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			removedTime, removedPrice, err := svc.CleanupExpired(cleanupCtx, cutoff)
+			removedTime, removedPrice, err := svc.ClearAllPrices(cleanupCtx)
 			cancel()
 			if err != nil {
 				log.Printf("Cleanup failed: %v", err)

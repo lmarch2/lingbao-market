@@ -24,6 +24,20 @@ const (
 	keyPriceValue = "market:feed:price"
 )
 
+func (s *PriceService) ClearAllPrices(ctx context.Context) (int64, int64, error) {
+	pipe := s.rdb.TxPipeline()
+	timeCount := pipe.ZCard(ctx, keyPriceTime)
+	priceCount := pipe.ZCard(ctx, keyPriceValue)
+	pipe.Del(ctx, keyPriceTime, keyPriceValue)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return timeCount.Val(), priceCount.Val(), nil
+}
+
 func (s *PriceService) AddPrice(ctx context.Context, item model.PriceItem) error {
 	item.Timestamp = time.Now().UnixMilli()
 	val, err := json.Marshal(item)
