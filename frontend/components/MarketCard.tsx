@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
-import { Copy, Check, Clock, Trash2, TrendingUp } from 'lucide-react';
+import { Copy, Check, Clock, Loader2, Trash2, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
@@ -39,7 +39,7 @@ interface MarketCardProps {
   index: number;
   adminToken?: string;
   canDelete?: boolean;
-  onDeleted?: () => void;
+  onDeleted?: (code: string, removed: boolean) => void;
 }
 
 export default function MarketCard({
@@ -69,7 +69,7 @@ export default function MarketCard({
     if (!adminToken) {
       return;
     }
-    const confirmed = window.confirm(t('confirm_delete', { code: item.code }));
+    const confirmed = window.confirm(t('confirm_delete', { code: displayCode }));
     if (!confirmed) {
       return;
     }
@@ -81,9 +81,29 @@ export default function MarketCard({
           Authorization: `Bearer ${adminToken}`,
         },
       });
-      if (res.ok) {
-        onDeleted?.();
+      const payload = (await res.json().catch(() => null)) as {
+        error?: string;
+        removed_time?: number;
+        removed_price?: number;
+      } | null;
+
+      if (!res.ok) {
+        window.alert(payload?.error || t('delete_failed'));
+        return;
       }
+
+      const removedTime = typeof payload?.removed_time === 'number' ? payload.removed_time : null;
+      const removedPrice = typeof payload?.removed_price === 'number' ? payload.removed_price : null;
+      const removed =
+        removedTime === null && removedPrice === null
+          ? true
+          : (removedTime ?? 0) > 0 || (removedPrice ?? 0) > 0;
+
+      if (!removed) {
+        window.alert(t('delete_not_found'));
+      }
+
+      onDeleted?.(item.code, removed);
     } finally {
       setDeleting(false);
     }
@@ -147,7 +167,11 @@ export default function MarketCard({
                   aria-label={t('delete')}
                   className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {deleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </Button>
               )}
               <Button

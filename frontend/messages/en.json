@@ -72,7 +72,9 @@
     "copy_success": "Copied!",
     "copy_text": "Lingbao Market: My cake price is {price}! Code [{code}], come quickly!",
     "delete": "Delete",
-    "confirm_delete": "Delete all listings for {code}?"
+    "confirm_delete": "Delete all listings for {code}?",
+    "delete_failed": "Delete failed. Please try again.",
+    "delete_not_found": "No listings found for this code."
   },
   "Notices": {
     "welcome_1": "Welcome to <bold>Lingbao Market</bold> - The open price exchange.",

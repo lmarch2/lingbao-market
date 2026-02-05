@@ -72,7 +72,9 @@
     "copy_success": "已复制！",
     "copy_text": "王者荣耀【{code}】我的小马糕今天{price}块，复制链接来我的市集出售，马年上分大吉！",
     "delete": "删除",
-    "confirm_delete": "删除代码 {code} 的所有条目？"
+    "confirm_delete": "删除代码 {code} 的所有条目？",
+    "delete_failed": "删除失败，请重试。",
+    "delete_not_found": "未找到该代码相关条目，可能已被删除。"
   },
   "Notices": {
     "welcome_1": "欢迎来到 <bold>灵宝市场</bold> - 开放价格交易所。",

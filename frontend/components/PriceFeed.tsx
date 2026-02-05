@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowDownUp, Loader2, RefreshCw } from 'lucide-react';
@@ -38,16 +38,32 @@ export default function PriceFeed() {
     }
   );
 
+  const handleDeleted = useCallback(
+    (code: string, removed: boolean) => {
+      if (removed) {
+        void mutate((current) => current?.filter((item) => item.code !== code), {
+          revalidate: true,
+        });
+        return;
+      }
+      void mutate();
+    },
+    [mutate]
+  );
+
   useEffect(() => {
     if (!prices || prices.length === 0) {
       return;
     }
     const maxPrice = prices.reduce((max, item) => Math.max(max, item.price), 0);
     if (lastMaxPrice.current !== null && maxPrice > lastMaxPrice.current) {
-      setHasNewHigh(true);
-      const timeout = window.setTimeout(() => setHasNewHigh(false), 6000);
+      const showTimeout = window.setTimeout(() => setHasNewHigh(true), 0);
+      const hideTimeout = window.setTimeout(() => setHasNewHigh(false), 6000);
       lastMaxPrice.current = maxPrice;
-      return () => window.clearTimeout(timeout);
+      return () => {
+        window.clearTimeout(showTimeout);
+        window.clearTimeout(hideTimeout);
+      };
     }
     lastMaxPrice.current = maxPrice;
   }, [prices]);
@@ -121,7 +137,7 @@ export default function PriceFeed() {
                         index={idx}
                         adminToken={token}
                         canDelete={isAdmin}
-                        onDeleted={() => mutate()}
+                        onDeleted={handleDeleted}
                     />
                 ))}
             </AnimatePresence>
