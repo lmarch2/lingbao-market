@@ -71,7 +71,8 @@ func main() {
 	}))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*", // Lock down in production
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 	}))
 
 	// 5. Routes
