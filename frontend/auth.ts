@@ -2,6 +2,13 @@ import NextAuth from "next-auth"
 // import GitHub from "next-auth/providers/github"
 import Credentials from "next-auth/providers/credentials"
 import { serverApiUrl } from "@/lib/api"
+
+type LoginResponse = {
+  token: string;
+  username: string;
+  id: string;
+  isAdmin: boolean;
+}
  
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -31,7 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           if (!res.ok) return null;
 
-          const user = await res.json();
+          const user = (await res.json()) as LoginResponse;
           // User: { token, username, id, isAdmin }
           if (user.token) {
             return {
@@ -52,19 +59,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     jwt: async ({ token, user }) => {
       if (user) {
-        token.accessToken = (user as any).accessToken
+        if (typeof user.accessToken === 'string') {
+          token.accessToken = user.accessToken
+        }
         token.id = user.id
-        token.isAdmin = (user as any).isAdmin
+        token.isAdmin = Boolean(user.isAdmin)
       }
       return token
     },
     session: async ({ session, token }) => {
       if (token) {
-        (session as any).accessToken = token.accessToken
-        if (session.user) {
-          (session.user as any).isAdmin = token.isAdmin
+        if (typeof token.accessToken === 'string') {
+          session.accessToken = token.accessToken
         }
-        // session.user.id = token.id as string
+        if (session.user) {
+          session.user.isAdmin = Boolean(token.isAdmin)
+          if (typeof token.id === 'string' && token.id) {
+            session.user.id = token.id
+          }
+        }
       }
       return session
     },

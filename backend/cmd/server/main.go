@@ -46,6 +46,7 @@ func main() {
 	// 3. Init Services
 	svc := service.NewPriceService(rdb)
 	authSvc := service.NewAuthService(rdb, cfg.JWTSecret)
+	adminSvc := service.NewAdminService(rdb)
 
 	if _, err := authSvc.EnsureAdmin(context.Background(), cfg.AdminUsername, cfg.AdminPassword); err != nil {
 		log.Printf("Failed to ensure admin user: %v", err)
@@ -101,7 +102,7 @@ func main() {
 	}))
 
 	// 5. Routes
-	h := api.NewHandler(svc, authSvc, cfg.JWTSecret)
+	h := api.NewHandler(svc, authSvc, adminSvc, cfg.JWTSecret)
 	h.RegisterRoutes(app)
 
 	// 6. Schedule daily cleanup

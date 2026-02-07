@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Loader2, UserPlus, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { apiUrl } from "@/lib/api";
+
+type CaptchaResponse = {
+  captchaId: string;
+  code: string;
+};
+
+type ErrorResponse = {
+  error?: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export default function RegisterForm() {
   const t = useTranslations('Auth');
@@ -23,27 +39,26 @@ export default function RegisterForm() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-  const loadCaptcha = async () => {
+  const loadCaptcha = useCallback(async () => {
     try {
       const res = await fetch(apiUrl('/api/v1/auth/captcha'));
       if (!res.ok) {
         throw new Error(t('error_captcha_load'));
       }
-      const data = await res.json();
+      const data = (await res.json()) as CaptchaResponse;
       setCaptchaId(data.captchaId || '');
       setCaptchaValue(data.code || '');
       setCaptchaInput('');
-    } catch (err: any) {
+    } catch (error) {
       setCaptchaId('');
       setCaptchaValue('');
-      setError(err.message || t('error_captcha_load'));
+      setError(getErrorMessage(error, t('error_captcha_load')));
     }
-  };
+  }, [t]);
 
   useEffect(() => {
-    loadCaptcha();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void loadCaptcha();
+  }, [loadCaptcha]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,14 +89,14 @@ export default function RegisterForm() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as ErrorResponse;
         throw new Error(data.error || t('error_login_failed'));
       }
 
       router.push('/auth/login');
-    } catch (err: any) {
-      setError(err.message);
-      loadCaptcha();
+    } catch (error) {
+      setError(getErrorMessage(error, t('error_login_failed')));
+      void loadCaptcha();
     } finally {
       setLoading(false);
     }

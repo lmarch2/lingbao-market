@@ -136,6 +136,7 @@ export default function PriceFeed() {
                         item={item} 
                         index={idx}
                         adminToken={token}
+                        authToken={token}
                         canDelete={isAdmin}
                         onDeleted={handleDeleted}
                     />

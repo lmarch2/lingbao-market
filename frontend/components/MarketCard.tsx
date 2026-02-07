@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
-import { Copy, Check, Clock, Loader2, Trash2, TrendingUp } from 'lucide-react';
+import { Copy, Check, Clock, Flag, Loader2, Trash2, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
@@ -38,6 +38,7 @@ interface MarketCardProps {
   item: PriceItem;
   index: number;
   adminToken?: string;
+  authToken?: string;
   canDelete?: boolean;
   onDeleted?: (code: string, removed: boolean) => void;
 }
@@ -46,12 +47,15 @@ export default function MarketCard({
   item,
   index,
   adminToken,
+  authToken,
   canDelete = false,
   onDeleted,
 }: MarketCardProps) {
   const t = useTranslations('Card');
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const isHigh = item.price >= 900;
@@ -109,6 +113,50 @@ export default function MarketCard({
     }
   };
 
+  const handleFeedback = async () => {
+    const reasonInput = window.prompt(t('feedback_prompt', { code: displayCode }));
+    if (reasonInput === null) {
+      return;
+    }
+
+    const reason = reasonInput.trim();
+    if (!reason) {
+      window.alert(t('feedback_reason_required'));
+      return;
+    }
+    if (reason.length > 300) {
+      window.alert(t('feedback_reason_too_long'));
+      return;
+    }
+
+    setReporting(true);
+    try {
+      const res = await fetch(apiUrl('/api/v1/feedback'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({
+          code: item.code,
+          reason,
+        }),
+      });
+
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        window.alert(payload?.error || t('feedback_failed'));
+        return;
+      }
+
+      setReported(true);
+      window.alert(t('feedback_success'));
+      setTimeout(() => setReported(false), 2500);
+    } finally {
+      setReporting(false);
+    }
+  };
+
   return (
     <motion.div
       layout
@@ -158,6 +206,22 @@ export default function MarketCard({
             </div>
             
             <div className="flex items-center gap-2">
+              <Button
+                onClick={handleFeedback}
+                size="icon"
+                variant="ghost"
+                disabled={reporting}
+                aria-label={t('feedback')}
+                className="h-8 w-8 rounded-full text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+              >
+                {reporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : reported ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Flag className="w-4 h-4" />
+                )}
+              </Button>
               {canDelete && adminToken && (
                 <Button
                   onClick={handleDelete}

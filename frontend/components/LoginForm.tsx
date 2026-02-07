@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import { getSession, signIn } from 'next-auth/react';
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { apiUrl } from '@/lib/api';
+
+type CaptchaResponse = {
+  captchaId: string;
+  code: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export default function LoginForm() {
   const t = useTranslations('Auth');
@@ -22,27 +34,26 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-  const loadCaptcha = async () => {
+  const loadCaptcha = useCallback(async () => {
     try {
       const res = await fetch(apiUrl('/api/v1/auth/captcha'));
       if (!res.ok) {
         throw new Error(t('error_captcha_load'));
       }
-      const data = await res.json();
+      const data = (await res.json()) as CaptchaResponse;
       setCaptchaId(data.captchaId || '');
       setCaptchaValue(data.code || '');
       setCaptchaInput('');
-    } catch (err: any) {
+    } catch (error) {
       setCaptchaId('');
       setCaptchaValue('');
-      setError(err.message || t('error_captcha_load'));
+      setError(getErrorMessage(error, t('error_captcha_load')));
     }
-  };
+  }, [t]);
 
   useEffect(() => {
-    loadCaptcha();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void loadCaptcha();
+  }, [loadCaptcha]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,12 +71,12 @@ export default function LoginForm() {
 
       if (result?.error) {
         setError(t('error_invalid_credentials'));
-        loadCaptcha();
+        void loadCaptcha();
         return;
       }
 
       const session = await getSession();
-      const token = (session as any)?.accessToken as string | undefined;
+      const token = session?.accessToken;
       if (token) {
         const adminCheck = await fetch(apiUrl('/api/v1/admin/users'), {
           headers: {
@@ -78,9 +89,9 @@ export default function LoginForm() {
         }
       }
       router.push('/');
-    } catch (err) {
+    } catch {
       setError(t('error_login_failed'));
-      loadCaptcha();
+      void loadCaptcha();
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/url"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -13,16 +14,18 @@ import (
 )
 
 type Handler struct {
-	svc     *service.PriceService
-	authSvc *service.AuthService
-	jwtKey  []byte
+	svc      *service.PriceService
+	authSvc  *service.AuthService
+	adminSvc *service.AdminService
+	jwtKey   []byte
 }
 
-func NewHandler(svc *service.PriceService, authSvc *service.AuthService, jwtKey string) *Handler {
+func NewHandler(svc *service.PriceService, authSvc *service.AuthService, adminSvc *service.AdminService, jwtKey string) *Handler {
 	return &Handler{
-		svc:     svc,
-		authSvc: authSvc,
-		jwtKey:  []byte(jwtKey),
+		svc:      svc,
+		authSvc:  authSvc,
+		adminSvc: adminSvc,
+		jwtKey:   []byte(jwtKey),
 	}
 }
 
@@ -34,6 +37,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	api.Get("/auth/captcha", h.GetCaptcha)
 	api.Post("/auth/register", h.Register)
 	api.Post("/auth/login", h.Login)
+	api.Post("/feedback", h.SubmitFeedback)
 
 	// Public (login not required)
 	api.Post("/submit", h.SubmitPrice)
@@ -46,6 +50,9 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	admin.Patch("/users/:username/ban", h.SetUserBan)
 	admin.Delete("/users/:username", h.DeleteUser)
 	admin.Delete("/prices/:code", h.DeletePriceByCode)
+	admin.Get("/feedback", h.ListFeedback)
+	admin.Post("/feedback/:id/resolve", h.ResolveFeedback)
+	admin.Get("/logs", h.ListLogs)
 }
 
 func (h *Handler) Register(c *fiber.Ctx) error {
@@ -193,6 +200,16 @@ func (h *Handler) CreateUser(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
+	resolver := h.actorFromCtx(c)
+	_ = h.adminSvc.AppendLog(c.Context(), model.AdminLogEntry{
+		Type:    "user_created",
+		Message: "admin created user",
+		Actor:   resolver,
+		Metadata: map[string]string{
+			"username": payload.Username,
+			"isAdmin":  boolToString(payload.IsAdmin),
+		},
+	})
 
 	return c.Status(201).JSON(model.UserPublic{
 		ID:       user.ID,
@@ -218,6 +235,16 @@ func (h *Handler) SetUserBan(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "user not found"})
 	}
+	resolver := h.actorFromCtx(c)
+	_ = h.adminSvc.AppendLog(c.Context(), model.AdminLogEntry{
+		Type:    "user_ban_changed",
+		Message: "admin changed user ban state",
+		Actor:   resolver,
+		Metadata: map[string]string{
+			"username": username,
+			"banned":   boolToString(payload.Banned),
+		},
+	})
 
 	return c.JSON(model.UserPublic{
 		ID:       user.ID,
@@ -235,6 +262,15 @@ func (h *Handler) DeleteUser(c *fiber.Ctx) error {
 	if err := h.authSvc.DeleteUser(c.Context(), username); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to delete user"})
 	}
+	resolver := h.actorFromCtx(c)
+	_ = h.adminSvc.AppendLog(c.Context(), model.AdminLogEntry{
+		Type:    "user_deleted",
+		Message: "admin deleted user",
+		Actor:   resolver,
+		Metadata: map[string]string{
+			"username": username,
+		},
+	})
 	return c.JSON(fiber.Map{"status": "ok"})
 }
 
@@ -255,11 +291,160 @@ func (h *Handler) DeletePriceByCode(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to delete code"})
 	}
+	resolver := h.actorFromCtx(c)
+	_ = h.adminSvc.AppendLog(c.Context(), model.AdminLogEntry{
+		Type:    "price_deleted",
+		Message: "admin deleted code from market feed",
+		Actor:   resolver,
+		Metadata: map[string]string{
+			"code":         strings.ToUpper(code),
+			"removedTime":  int64ToString(removedTime),
+			"removedPrice": int64ToString(removedPrice),
+		},
+	})
+
 	return c.JSON(fiber.Map{
 		"status":        "ok",
 		"removed_time":  removedTime,
 		"removed_price": removedPrice,
 	})
+}
+
+func (h *Handler) SubmitFeedback(c *fiber.Ctx) error {
+	var req model.FeedbackRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid request"})
+	}
+
+	req.Code = strings.TrimSpace(strings.ToUpper(req.Code))
+	req.Reason = strings.TrimSpace(req.Reason)
+	if req.Code == "" || req.Reason == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid feedback data"})
+	}
+	if len(req.Reason) > 300 {
+		return c.Status(400).JSON(fiber.Map{"error": "reason too long"})
+	}
+
+	reporter := "guest"
+	if actor := h.actorFromOptionalAuth(c); actor != "" {
+		reporter = actor
+	}
+
+	feedback, err := h.adminSvc.AddFeedback(c.Context(), req.Code, req.Reason, reporter)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to submit feedback"})
+	}
+
+	return c.Status(201).JSON(feedback)
+}
+
+func (h *Handler) ListFeedback(c *fiber.Ctx) error {
+	includeResolved := c.QueryBool("includeResolved", true)
+	feedback, err := h.adminSvc.ListFeedback(c.Context(), 200, includeResolved)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list feedback"})
+	}
+	return c.JSON(feedback)
+}
+
+func (h *Handler) ResolveFeedback(c *fiber.Ctx) error {
+	id := strings.TrimSpace(c.Params("id"))
+	if id == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "missing feedback id"})
+	}
+
+	var req model.ResolveFeedbackRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid request"})
+	}
+	action := strings.ToLower(strings.TrimSpace(req.Action))
+	if action != "keep" && action != "delete" {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid action"})
+	}
+
+	feedback, err := h.adminSvc.GetFeedback(c.Context(), id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "feedback not found"})
+	}
+
+	removedTime := int64(0)
+	removedPrice := int64(0)
+	if action == "delete" {
+		removedTime, removedPrice, err = h.svc.DeletePricesByCode(c.Context(), strings.ToUpper(feedback.Code))
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "failed to delete code"})
+		}
+	}
+
+	resolver := h.actorFromCtx(c)
+	resolved, err := h.adminSvc.ResolveFeedback(c.Context(), id, resolver, action, removedTime, removedPrice)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(resolved)
+}
+
+func (h *Handler) ListLogs(c *fiber.Ctx) error {
+	logs, err := h.adminSvc.ListLogs(c.Context(), 200)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list logs"})
+	}
+	return c.JSON(logs)
+}
+
+func (h *Handler) actorFromCtx(c *fiber.Ctx) string {
+	claims, ok := c.Locals("user").(jwt.MapClaims)
+	if !ok {
+		return "system"
+	}
+	if username, ok := claims["username"].(string); ok && strings.TrimSpace(username) != "" {
+		return strings.TrimSpace(username)
+	}
+	return "system"
+}
+
+func boolToString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
+}
+
+func int64ToString(value int64) string {
+	return strconv.FormatInt(value, 10)
+}
+
+func (h *Handler) actorFromOptionalAuth(c *fiber.Ctx) string {
+	authHeader := strings.TrimSpace(c.Get("Authorization"))
+	if authHeader == "" {
+		return ""
+	}
+
+	tokenString := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	if tokenString == "" {
+		return ""
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return h.jwtKey, nil
+	})
+	if err != nil || !token.Valid {
+		return ""
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return ""
+	}
+	if username, ok := claims["username"].(string); ok && strings.TrimSpace(username) != "" {
+		return strings.TrimSpace(username)
+	}
+	if name, ok := claims["name"].(string); ok && strings.TrimSpace(name) != "" {
+		return strings.TrimSpace(name)
+	}
+
+	return ""
 }
 
 func (h *Handler) authMiddleware(c *fiber.Ctx) error {

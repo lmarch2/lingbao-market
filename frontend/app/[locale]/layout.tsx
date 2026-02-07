@@ -1,26 +1,9 @@
 import {NextIntlClientProvider} from 'next-intl';
 import {getMessages} from 'next-intl/server';
-import { Geist_Mono, Instrument_Serif, Manrope } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
 import "../globals.css";
-
-const manrope = Manrope({
-  variable: "--font-body",
-  subsets: ["latin"],
-});
-
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: "400",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
  
 export default async function LocaleLayout({
   children,
@@ -37,7 +20,7 @@ export default async function LocaleLayout({
  
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className={`${manrope.variable} ${instrumentSerif.variable} ${geistMono.variable} antialiased`}>
+      <body className="antialiased">
         <SessionProvider session={session}>
           <NextIntlClientProvider messages={messages}>
             <ThemeProvider
