@@ -42,6 +42,16 @@ type AdminLogEntry = {
   metadata?: Record<string, string>;
 };
 
+type ManualBilibiliImportResult = {
+  status: string;
+  imported: number;
+  warning?: string;
+};
+
+function getLogMetadataEntries(metadata?: Record<string, string>) {
+  return Object.entries(metadata ?? {}).filter(([, value]) => value.trim() !== "");
+}
+
 export default function AdminPage() {
   const t = useTranslations("Admin");
   const locale = useLocale();
@@ -57,6 +67,8 @@ export default function AdminPage() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [logs, setLogs] = useState<AdminLogEntry[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ManualBilibiliImportResult | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     username: "",
@@ -73,6 +85,59 @@ export default function AdminPage() {
     }
     return base;
   }, [token]);
+
+  const logMetadataLabels = useMemo<Record<string, string>>(
+    () => ({
+      action: t("log_meta_action"),
+      banned: t("log_meta_banned"),
+      code: t("log_meta_code"),
+      commentPages: t("log_meta_comment_pages"),
+      error: t("log_meta_error"),
+      feedbackId: t("log_meta_feedback_id"),
+      imported: t("log_meta_imported"),
+      isAdmin: t("log_meta_is_admin"),
+      keyword: t("log_meta_keyword"),
+      limit: t("log_meta_limit"),
+      minPrice: t("log_meta_min_price"),
+      removedPrice: t("log_meta_removed_price"),
+      removedTime: t("log_meta_removed_time"),
+      result: t("log_meta_result"),
+      searchPages: t("log_meta_search_pages"),
+      searchPageSize: t("log_meta_search_page_size"),
+      server: t("log_meta_server"),
+      username: t("log_meta_username"),
+      warning: t("log_meta_warning"),
+    }),
+    [t]
+  );
+
+  const formatLogMetadataValue = useCallback(
+    (key: string, value: string) => {
+      if ((key === "banned" || key === "isAdmin") && value === "true") {
+        return t("log_value_true");
+      }
+      if ((key === "banned" || key === "isAdmin") && value === "false") {
+        return t("log_value_false");
+      }
+      if (key === "action" && value === "keep") {
+        return t("log_action_keep");
+      }
+      if (key === "action" && value === "delete") {
+        return t("log_action_delete");
+      }
+      if (key === "result" && value === "success") {
+        return t("log_result_success");
+      }
+      if (key === "result" && value === "warning") {
+        return t("log_result_warning");
+      }
+      if (key === "result" && value === "error") {
+        return t("log_result_error");
+      }
+      return value;
+    },
+    [t]
+  );
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -234,6 +299,35 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : t("error_feedback_resolve"));
     } finally {
       setResolvingId(null);
+    }
+  };
+
+  const handleManualImport = async () => {
+    setImporting(true);
+    setImportResult(null);
+    setError("");
+    try {
+      const res = await fetch(apiUrl("/api/v1/admin/imports/bilibili"), {
+        method: "POST",
+        headers,
+      });
+      const payload = (await res.json().catch(() => ({}))) as Partial<ManualBilibiliImportResult> & {
+        error?: string;
+        details?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload.details || payload.error || t("error_import"));
+      }
+      setImportResult({
+        status: payload.status || "ok",
+        imported: payload.imported ?? 0,
+        warning: payload.warning,
+      });
+      await fetchLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("error_import"));
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -443,14 +537,32 @@ export default function AdminPage() {
           <TabsContent value="logs">
             <section className="rounded-3xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <h2 className="text-lg font-semibold">{t("logs_title")}</h2>
-                <Button variant="outline" size="sm" onClick={fetchLogs} disabled={logsLoading} className="w-full sm:w-auto">
-                  {logsLoading ? t("loading") : t("refresh")}
-                </Button>
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold">{t("logs_title")}</h2>
+                  <p className="text-xs text-muted-foreground">{t("import_desc")}</p>
+                  {importResult && (
+                    <p className="text-xs text-muted-foreground">
+                      {importResult.warning
+                        ? t("import_result_warning", {
+                            imported: importResult.imported,
+                            warning: importResult.warning,
+                          })
+                        : t("import_result_success", { imported: importResult.imported })}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Button onClick={handleManualImport} disabled={importing} className="w-full sm:w-auto">
+                    {importing ? t("importing") : t("import_now")}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={fetchLogs} disabled={logsLoading} className="w-full sm:w-auto">
+                    {logsLoading ? t("loading") : t("refresh")}
+                  </Button>
+                </div>
               </div>
 
               <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <table className="w-full text-sm min-w-[760px]">
+                <table className="w-full text-sm min-w-[860px]">
                   <thead className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                     <tr>
                       <th className="py-2 text-left">{t("col_log_time")}</th>
@@ -460,16 +572,40 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5 dark:divide-white/10">
-                    {logs.map((entry) => (
-                      <tr key={entry.id}>
-                        <td className="py-3 text-muted-foreground whitespace-nowrap">
-                          {new Date(entry.timestamp).toLocaleString(locale)}
-                        </td>
-                        <td className="py-3 text-muted-foreground font-mono">{entry.type}</td>
-                        <td className="py-3 text-muted-foreground">{entry.actor}</td>
-                        <td className="py-3 text-muted-foreground">{entry.message}</td>
-                      </tr>
-                    ))}
+                    {logs.map((entry) => {
+                      const metadataEntries = getLogMetadataEntries(entry.metadata);
+                      return (
+                        <tr key={entry.id}>
+                          <td className="py-3 text-muted-foreground whitespace-nowrap">
+                            {new Date(entry.timestamp).toLocaleString(locale)}
+                          </td>
+                          <td className="py-3 text-muted-foreground font-mono">{entry.type}</td>
+                          <td className="py-3 text-muted-foreground">{entry.actor}</td>
+                          <td className="py-3">
+                            <div className="space-y-2">
+                              <p className="text-muted-foreground">{entry.message}</p>
+                              {metadataEntries.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {metadataEntries.map(([key, value]) => (
+                                    <span
+                                      key={`${entry.id}-${key}`}
+                                      className="inline-flex items-center gap-1 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] px-2 py-1 text-xs"
+                                    >
+                                      <span className="text-muted-foreground">
+                                        {logMetadataLabels[key] ?? key}
+                                      </span>
+                                      <span className="font-mono break-all text-foreground/80">
+                                        {formatLogMetadataValue(key, value)}
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {logs.length === 0 && !logsLoading && (
                       <tr>
                         <td colSpan={4} className="py-6 text-center text-muted-foreground">

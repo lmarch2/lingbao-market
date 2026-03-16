@@ -52,6 +52,16 @@ func main() {
 		log.Printf("Failed to ensure admin user: %v", err)
 	}
 
+	bilibiliImporter, err := service.NewBilibiliImporter(cfg.BilibiliCookie)
+	if err != nil {
+		log.Printf("Failed to init bilibili importer: %v", err)
+	}
+
+	bilibiliImportTimeout := time.Duration(cfg.BilibiliImportTimeoutSeconds) * time.Second
+	if bilibiliImportTimeout <= 0 {
+		bilibiliImportTimeout = 60 * time.Second
+	}
+
 	// 4. Init Fiber
 	app := fiber.New(fiber.Config{
 		AppName: "Lingbao Market Backend",
@@ -102,7 +112,22 @@ func main() {
 	}))
 
 	// 5. Routes
-	h := api.NewHandler(svc, authSvc, adminSvc, cfg.JWTSecret)
+	h := api.NewHandler(
+		svc,
+		authSvc,
+		adminSvc,
+		bilibiliImporter,
+		service.BilibiliImportOptions{
+			Keyword:        cfg.BilibiliImportKeyword,
+			Limit:          cfg.BilibiliImportLimit,
+			MinPrice:       cfg.BilibiliImportMinPrice,
+			SearchPages:    cfg.BilibiliImportSearchPages,
+			SearchPageSize: cfg.BilibiliImportSearchPageSize,
+			CommentPages:   cfg.BilibiliImportCommentPages,
+		},
+		bilibiliImportTimeout,
+		cfg.JWTSecret,
+	)
 	h.RegisterRoutes(app)
 
 	// 6. Schedule daily cleanup
@@ -118,7 +143,7 @@ func main() {
 		log.Printf("Invalid CLEANUP_TIMEZONE %q, falling back to Local", cfg.CleanupTimezone)
 		loc = time.Local
 	}
-	go scheduleDailyCleanup(cleanupCtx, svc, cleanupHour, cleanupMinute, loc)
+	go scheduleDailyCleanup(cleanupCtx, svc, bilibiliImporter, cfg, cleanupHour, cleanupMinute, loc)
 
 	// 6. Start Server
 	go func() {
@@ -140,7 +165,7 @@ func main() {
 	}
 }
 
-func scheduleDailyCleanup(ctx context.Context, svc *service.PriceService, hour, minute int, loc *time.Location) {
+func scheduleDailyCleanup(ctx context.Context, svc *service.PriceService, bilibiliImporter *service.BilibiliImporter, cfg *config.Config, hour, minute int, loc *time.Location) {
 	for {
 		now := time.Now().In(loc)
 		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, loc)
@@ -161,6 +186,29 @@ func scheduleDailyCleanup(ctx context.Context, svc *service.PriceService, hour, 
 				log.Printf("Cleanup failed: %v", err)
 			} else {
 				log.Printf("Cleanup finished: removed %d time records, %d price records", removedTime, removedPrice)
+			}
+
+			if err == nil && cfg != nil && cfg.BilibiliImportEnabled && bilibiliImporter != nil {
+				timeout := time.Duration(cfg.BilibiliImportTimeoutSeconds) * time.Second
+				if timeout <= 0 {
+					timeout = 60 * time.Second
+				}
+
+				importCtx, importCancel := context.WithTimeout(context.Background(), timeout)
+				imported, importErr := bilibiliImporter.ImportHighPriceCodes(importCtx, svc, service.BilibiliImportOptions{
+					Keyword:        cfg.BilibiliImportKeyword,
+					Limit:          cfg.BilibiliImportLimit,
+					MinPrice:       cfg.BilibiliImportMinPrice,
+					SearchPages:    cfg.BilibiliImportSearchPages,
+					SearchPageSize: cfg.BilibiliImportSearchPageSize,
+					CommentPages:   cfg.BilibiliImportCommentPages,
+				})
+				importCancel()
+
+				if importErr != nil {
+					log.Printf("Bilibili import warning: %v", importErr)
+				}
+				log.Printf("Bilibili import finished: imported %d items", imported)
 			}
 		}
 	}

@@ -16,6 +16,16 @@ type Config struct {
 	CleanupTimezone string `mapstructure:"CLEANUP_TIMEZONE"`
 	AdminUsername   string `mapstructure:"ADMIN_USERNAME"`
 	AdminPassword   string `mapstructure:"ADMIN_PASSWORD"`
+
+	BilibiliImportEnabled        bool    `mapstructure:"BILIBILI_IMPORT_ENABLED"`
+	BilibiliImportKeyword        string  `mapstructure:"BILIBILI_IMPORT_KEYWORD"`
+	BilibiliImportLimit          int     `mapstructure:"BILIBILI_IMPORT_LIMIT"`
+	BilibiliImportMinPrice       float64 `mapstructure:"BILIBILI_IMPORT_MIN_PRICE"`
+	BilibiliImportSearchPages    int     `mapstructure:"BILIBILI_IMPORT_SEARCH_PAGES"`
+	BilibiliImportSearchPageSize int     `mapstructure:"BILIBILI_IMPORT_SEARCH_PAGE_SIZE"`
+	BilibiliImportCommentPages   int     `mapstructure:"BILIBILI_IMPORT_COMMENT_PAGES"`
+	BilibiliImportTimeoutSeconds int     `mapstructure:"BILIBILI_IMPORT_TIMEOUT_SECONDS"`
+	BilibiliCookie               string  `mapstructure:"BILIBILI_COOKIE"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -28,6 +38,16 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("CLEANUP_TIMEZONE", "Local")
 	viper.SetDefault("ADMIN_USERNAME", "")
 	viper.SetDefault("ADMIN_PASSWORD", "")
+
+	viper.SetDefault("BILIBILI_IMPORT_ENABLED", true)
+	viper.SetDefault("BILIBILI_IMPORT_KEYWORD", "小马糕")
+	viper.SetDefault("BILIBILI_IMPORT_LIMIT", 30)
+	viper.SetDefault("BILIBILI_IMPORT_MIN_PRICE", 900)
+	viper.SetDefault("BILIBILI_IMPORT_SEARCH_PAGES", 1)
+	viper.SetDefault("BILIBILI_IMPORT_SEARCH_PAGE_SIZE", 20)
+	viper.SetDefault("BILIBILI_IMPORT_COMMENT_PAGES", 1)
+	viper.SetDefault("BILIBILI_IMPORT_TIMEOUT_SECONDS", 60)
+	viper.SetDefault("BILIBILI_COOKIE", "")
 
 	viper.AutomaticEnv()
 

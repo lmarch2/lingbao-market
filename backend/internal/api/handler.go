@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -14,18 +17,32 @@ import (
 )
 
 type Handler struct {
-	svc      *service.PriceService
-	authSvc  *service.AuthService
-	adminSvc *service.AdminService
-	jwtKey   []byte
+	svc                   *service.PriceService
+	authSvc               *service.AuthService
+	adminSvc              *service.AdminService
+	bilibiliImporter      *service.BilibiliImporter
+	bilibiliImportOpts    service.BilibiliImportOptions
+	bilibiliImportTimeout time.Duration
+	jwtKey                []byte
 }
 
-func NewHandler(svc *service.PriceService, authSvc *service.AuthService, adminSvc *service.AdminService, jwtKey string) *Handler {
+func NewHandler(
+	svc *service.PriceService,
+	authSvc *service.AuthService,
+	adminSvc *service.AdminService,
+	bilibiliImporter *service.BilibiliImporter,
+	bilibiliImportOpts service.BilibiliImportOptions,
+	bilibiliImportTimeout time.Duration,
+	jwtKey string,
+) *Handler {
 	return &Handler{
-		svc:      svc,
-		authSvc:  authSvc,
-		adminSvc: adminSvc,
-		jwtKey:   []byte(jwtKey),
+		svc:                   svc,
+		authSvc:               authSvc,
+		adminSvc:              adminSvc,
+		bilibiliImporter:      bilibiliImporter,
+		bilibiliImportOpts:    bilibiliImportOpts,
+		bilibiliImportTimeout: bilibiliImportTimeout,
+		jwtKey:                []byte(jwtKey),
 	}
 }
 
@@ -53,6 +70,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	admin.Get("/feedback", h.ListFeedback)
 	admin.Post("/feedback/:id/resolve", h.ResolveFeedback)
 	admin.Get("/logs", h.ListLogs)
+	admin.Post("/imports/bilibili", h.TriggerBilibiliImport)
 }
 
 func (h *Handler) Register(c *fiber.Ctx) error {
@@ -391,6 +409,71 @@ func (h *Handler) ListLogs(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list logs"})
 	}
 	return c.JSON(logs)
+}
+
+func (h *Handler) TriggerBilibiliImport(c *fiber.Ctx) error {
+	if h.bilibiliImporter == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "bilibili importer unavailable",
+		})
+	}
+
+	timeout := h.bilibiliImportTimeout
+	if timeout <= 0 {
+		timeout = 60 * time.Second
+	}
+
+	importCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	imported, importErr := h.bilibiliImporter.ImportHighPriceCodes(importCtx, h.svc, h.bilibiliImportOpts)
+	metadata := map[string]string{
+		"result":         "success",
+		"keyword":        strings.TrimSpace(h.bilibiliImportOpts.Keyword),
+		"limit":          strconv.Itoa(h.bilibiliImportOpts.Limit),
+		"minPrice":       strconv.FormatFloat(h.bilibiliImportOpts.MinPrice, 'f', -1, 64),
+		"searchPages":    strconv.Itoa(h.bilibiliImportOpts.SearchPages),
+		"searchPageSize": strconv.Itoa(h.bilibiliImportOpts.SearchPageSize),
+		"commentPages":   strconv.Itoa(h.bilibiliImportOpts.CommentPages),
+		"server":         strings.TrimSpace(h.bilibiliImportOpts.Server),
+		"imported":       strconv.Itoa(imported),
+	}
+
+	message := "admin manually triggered bilibili import"
+	statusCode := fiber.StatusOK
+	response := fiber.Map{
+		"status":   "ok",
+		"imported": imported,
+	}
+
+	var warning *service.BilibiliImportWarning
+	if importErr != nil {
+		if errors.As(importErr, &warning) {
+			metadata["result"] = "warning"
+			metadata["warning"] = warning.Error()
+			message = "admin manually triggered bilibili import with warning"
+			response["warning"] = warning.Error()
+		} else {
+			metadata["result"] = "error"
+			metadata["error"] = importErr.Error()
+			message = "admin manual bilibili import failed"
+			statusCode = fiber.StatusBadGateway
+			response = fiber.Map{
+				"error":    "bilibili import failed",
+				"details":  importErr.Error(),
+				"imported": imported,
+			}
+		}
+	}
+
+	_ = h.adminSvc.AppendLog(c.Context(), model.AdminLogEntry{
+		Type:     "bilibili_import_manual",
+		Message:  message,
+		Actor:    h.actorFromCtx(c),
+		Metadata: metadata,
+	})
+
+	return c.Status(statusCode).JSON(response)
 }
 
 func (h *Handler) actorFromCtx(c *fiber.Ctx) string {
